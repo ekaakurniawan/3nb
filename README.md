@@ -1,3 +1,3 @@
-Neural Network Notebook (3nb)
+<h1>Neural Network Notebook (3nb)</h1>
 
-Collection of IPython Notebook in Neural Network.
+Collection of IPython Notebooks in Neural Network.
