@@ -170,6 +170,5 @@ __kernel void nextState_cL(__global const float *dt,
         } else {
             spikes[out_idx + step] = 0;
         }
-        barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
     }
 }
