@@ -32,12 +32,12 @@
 #define LN_HAS_FIRED_IDX        12
 
 
-__kernel void nextState_pL_rI(__global const float *dt,
-                              __global const float *Iinjects,
-                              __global int *step,
-                              __global float *lifNeurons,
-                              __global float *Vms,
-                              __global int *spikes)
+__kernel void nextState_plir(__global const float *dt,
+                             __global const float *Iinjects,
+                             __global int *step,
+                             __global float *lifNeurons,
+                             __global float *Vms,
+                             __global int *spikes)
 {
     long gid = get_global_id(0);
     long ln_idx = gid * LN_LEN;
@@ -77,13 +77,13 @@ __kernel void nextState_pL_rI(__global const float *dt,
     if (gid == 0) step[0] = step_loc + 1;
 }
 
-__kernel void nextState_pL_rC(__global const float *dt,
-                              __global const float *Iinjects,
-                              __global const int *input_len,
-                              __global int *step,
-                              __global float *lifNeurons,
-                              __global float *Vms,
-                              __global int *spikes)
+__kernel void nextState_plcr(__global const float *dt,
+                             __global const float *Iinjects,
+                             __global const int *input_len,
+                             __global int *step,
+                             __global float *lifNeurons,
+                             __global float *Vms,
+                             __global int *spikes)
 {
     long gid = get_global_id(0);
     // Start index of neuron
@@ -124,70 +124,12 @@ __kernel void nextState_pL_rC(__global const float *dt,
     }
 }
 
-__kernel void nextState_pL_rC_opt(__global const float *dt,
-                                  __global const float *Iinjects,
-                                  __global const int *input_len,
-                                  __global int *steps,
-                                  __global const float *lif_Rm,
-                                  __global const float *lif_Vresting,
-                                  __global const float *lif_Vthresh,
-                                  __global const float *lif_Vreset,
-                                  __global const float *lif_Vinit,
-                                  __global float *lif_Vm,
-                                  __global const float *lif_Trefract,
-                                  __global float *lif_summationPoint,
-                                  __global float *lif_Iinject,
-                                  __global const float *lif_C1,
-                                  __global const float *lif_C2,
-                                  __global int *lif_nStepsInRefr,
-                                  __global int *lif_hasFired,
-                                  __global float *Vms,
-                                  __global int *spikes)
-{
-    long gid = get_global_id(0);
-    // Index to store Vm and spike
-    long out_idx = gid * input_len[0];
-    
-    float dt_lm = dt[0];
-    int step = steps[gid];
-    
-    float Iinject = Iinjects[step];
-    lif_Iinject[gid] = Iinject;
-    int hasFired;
-    float Vm = lif_Vm[gid];
-    
-    if (lif_nStepsInRefr[gid] > 0) {
-        lif_nStepsInRefr[gid] -= 1;
-        hasFired = 0;
-    } else if (Vm >= lif_Vthresh[gid]) {
-        hasFired = 1;
-        lif_nStepsInRefr[gid] = ceil(lif_Trefract[gid] / dt_lm);
-        Vm = lif_Vreset[gid];
-    } else {
-        hasFired = 0;
-        float summationPoint = lif_summationPoint[gid] + Iinject +
-                               (lif_Vresting[gid] / lif_Rm[gid]);
-        Vm = (lif_C1[gid] * Vm) + (lif_C2[gid] * summationPoint);
-    }
-    lif_hasFired[gid] = hasFired;
-    lif_summationPoint[gid] = 0;
-    
-    lif_Vm[gid] = Vm;
-    Vms[out_idx + step] = Vm;
-    if (hasFired) {
-        spikes[out_idx + step] = 1;
-    } else {
-        spikes[out_idx + step] = 0;
-    }
-    steps[gid] = step + 1;
-}
-
-__kernel void nextState_cL(__global const float *dt,
-                           __global const float *Iinjects,
-                           __global const int *input_len,
-                           __global float *lifNeurons,
-                           __global float *Vms,
-                           __global int *spikes)
+__kernel void nextState_clcr(__global const float *dt,
+                             __global const float *Iinjects,
+                             __global const int *input_len,
+                             __global float *lifNeurons,
+                             __global float *Vms,
+                             __global int *spikes)
 {
     long gid = get_global_id(0);
     // Start index of neuron
@@ -228,5 +170,114 @@ __kernel void nextState_cL(__global const float *dt,
         } else {
             spikes[out_idx + step] = 0;
         }
+        barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+    }
+}
+
+__kernel void nextState_plcr_pa(__global const float *dt,
+                                __global const float *Iinjects,
+                                __global const int *input_len,
+                                __global int *steps,
+                                __global const float *lif_Rm,
+                                __global const float *lif_Vresting,
+                                __global const float *lif_Vthresh,
+                                __global const float *lif_Vreset,
+                                __global const float *lif_Vinit,
+                                __global float *lif_Vm,
+                                __global const float *lif_Trefract,
+                                __global float *lif_summationPoint,
+                                __global float *lif_Iinject,
+                                __global const float *lif_C1,
+                                __global const float *lif_C2,
+                                __global int *lif_nStepsInRefr,
+                                __global int *lif_hasFired,
+                                __global float *Vms,
+                                __global int *spikes)
+{
+    long gid = get_global_id(0);
+    // Index to store Vm and spike
+    long out_idx = gid * input_len[0];
+    
+    float dt_lm = dt[0];
+    int step = steps[gid];
+    
+    float Iinject = Iinjects[step];
+    lif_Iinject[gid] = Iinject;
+    int hasFired;
+    float Vm = lif_Vm[gid];
+    
+    if (lif_nStepsInRefr[gid] > 0) {
+        lif_nStepsInRefr[gid] -= 1;
+        hasFired = 0;
+    } else if (Vm >= lif_Vthresh[gid]) {
+        hasFired = 1;
+        lif_nStepsInRefr[gid] = ceil(lif_Trefract[gid] / dt_lm);
+        Vm = lif_Vreset[gid];
+    } else {
+        hasFired = 0;
+        float summationPoint = lif_summationPoint[gid] + Iinject +
+                               (lif_Vresting[gid] / lif_Rm[gid]);
+        Vm = (lif_C1[gid] * Vm) + (lif_C2[gid] * summationPoint);
+    }
+    lif_hasFired[gid] = hasFired;
+    lif_summationPoint[gid] = 0;
+    
+    lif_Vm[gid] = Vm;
+    Vms[out_idx + step] = Vm;
+    if (hasFired) {
+        spikes[out_idx + step] = 1;
+    } else {
+        spikes[out_idx + step] = 0;
+    }
+    steps[gid] = step + 1;
+}
+
+__kernel void nextState_clcr_pa(__global const float *dt,
+                                __global const float *Iinjects,
+                                __global const int *input_len,
+                                __global const float *lif_Rm,
+                                __global const float *lif_Vresting,
+                                __global const float *lif_Vthresh,
+                                __global const float *lif_Vreset,
+                                __global const float *lif_Vinit,
+                                __global float *lif_Vm,
+                                __global const float *lif_Trefract,
+                                __global float *lif_summationPoint,
+                                __global float *lif_Iinject,
+                                __global const float *lif_C1,
+                                __global const float *lif_C2,
+                                __global int *lif_nStepsInRefr,
+                                __global int *lif_hasFired,
+                                __global float *Vms,
+                                __global int *spikes)
+{
+    long gid = get_global_id(0);
+    // Index to store Vm and spike
+    int input_len_lm = input_len[0];
+    long out_idx = gid * input_len_lm;
+    
+    int nStepsInRefr = lif_nStepsInRefr[gid];
+    int hasFired;
+    float Vm = lif_Vm[gid];
+    float summationPoint = lif_summationPoint[gid];
+    
+    for (int step = 0; step < input_len_lm; step++) {
+        if (nStepsInRefr > 0) {
+            nStepsInRefr -= 1;
+            hasFired = 0;
+        } else if (Vm >= lif_Vthresh[gid]) {
+            hasFired = 1;
+            spikes[out_idx + step] = 1;
+            nStepsInRefr = ceil(lif_Trefract[gid] / dt[0]);
+            Vm = lif_Vreset[gid];
+        } else {
+            hasFired = 0;
+            summationPoint = summationPoint + Iinjects[step] +
+                             (lif_Vresting[gid] / lif_Rm[gid]);
+            Vm = (lif_C1[gid] * Vm) + (lif_C2[gid] * summationPoint);
+        }
+        summationPoint = 0;
+        Vms[out_idx + step] = Vm;
+        barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
     }
 }
