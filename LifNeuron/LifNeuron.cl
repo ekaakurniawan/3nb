@@ -281,3 +281,69 @@ __kernel void nextState_clcr_pa(__global const float *dt,
         barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
     }
 }
+
+#define BLOCK_START(pid, np, n) ((pid * n) / np)
+#define BLOCK_END(pid, np, n) ((((pid + 1) * n) / np) - 1)
+
+__kernel void nextState_clcrwg_pa(__global const float *dt,
+                                  __global const float *Iinjects,
+                                  __global const int *input_len,
+                                  __global const float *lif_Rm,
+                                  __global const float *lif_Vresting,
+                                  __global const float *lif_Vthresh,
+                                  __global const float *lif_Vreset,
+                                  __global const float *lif_Vinit,
+                                  __global float *lif_Vm,
+                                  __global const float *lif_Trefract,
+                                  __global float *lif_summationPoint,
+                                  __global float *lif_Iinject,
+                                  __global const float *lif_C1,
+                                  __global const float *lif_C2,
+                                  __global int *lif_nStepsInRefr,
+                                  __global int *lif_hasFired,
+                                  __global float *Vms,
+                                  __global int *spikes)
+{
+    long grid = get_group_id(0);
+    if (grid != 0) return;
+    
+    long gsz = get_global_size(0);
+    long lsz = get_local_size(0);
+    long lid = get_local_id(0);
+    long start_idx = BLOCK_START(lid, lsz, gsz);
+    long end_idx = BLOCK_END(lid, lsz, gsz);
+    
+    int input_len_lm = input_len[0];
+    for (int step = 0; step < input_len_lm; step++) {
+        for (long idx = start_idx; idx <= end_idx; idx++) {
+            // Index to store Vm and spike
+            long out_idx = idx * input_len_lm;
+            
+            int nStepsInRefr = lif_nStepsInRefr[idx];
+            int hasFired;
+            float Vm = lif_Vm[idx];
+            float summationPoint = lif_summationPoint[idx];
+            
+            if (nStepsInRefr > 0) {
+                nStepsInRefr -= 1;
+                hasFired = 0;
+            } else if (Vm >= lif_Vthresh[idx]) {
+                hasFired = 1;
+                spikes[out_idx + step] = 1;
+                nStepsInRefr = ceil(lif_Trefract[idx] / dt[0]);
+                Vm = lif_Vreset[idx];
+            } else {
+                hasFired = 0;
+                summationPoint = summationPoint + Iinjects[step] +
+                                 (lif_Vresting[idx] / lif_Rm[idx]);
+                Vm = (lif_C1[idx] * Vm) + (lif_C2[idx] * summationPoint);
+            }
+            Vms[out_idx + step] = Vm;
+            lif_Vm[idx] = Vm;
+            lif_nStepsInRefr[idx] = nStepsInRefr;
+            lif_hasFired[idx] = hasFired;
+            lif_summationPoint[idx] = 0;
+        }
+        barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+    }
+}
