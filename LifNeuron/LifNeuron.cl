@@ -32,9 +32,9 @@
 #define LN_HAS_FIRED_IDX        12
 
 
-__kernel void nextState_plir(__global const float *dt,
+__kernel void nextState_plir(const float dt,
+                             const int step,
                              __global const float *Iinjects,
-                             __global int *step,
                              __global float *lifNeurons,
                              __global float *Vms,
                              __global int *spikes)
@@ -42,9 +42,7 @@ __kernel void nextState_plir(__global const float *dt,
     long gid = get_global_id(0);
     long ln_idx = gid * LN_LEN;
     
-    float dt_loc = dt[0];
-    int step_loc = step[0];
-    lifNeurons[ln_idx + LN_I_INJECT_IDX] = Iinjects[step_loc];
+    lifNeurons[ln_idx + LN_I_INJECT_IDX] = Iinjects[step];
     
     if (lifNeurons[ln_idx + LN_N_STEPS_IN_REFR_IDX] > 0) {
         lifNeurons[ln_idx + LN_N_STEPS_IN_REFR_IDX] -= 1;
@@ -52,7 +50,7 @@ __kernel void nextState_plir(__global const float *dt,
     } else if (lifNeurons[ln_idx + LN_VM_IDX] >= lifNeurons[ln_idx + LN_V_THRESH_IDX]) {
         lifNeurons[ln_idx + LN_HAS_FIRED_IDX] = 1;
         lifNeurons[ln_idx + LN_N_STEPS_IN_REFR_IDX] =
-            (float)ceil(lifNeurons[ln_idx + LN_T_REFRACT_IDX] / dt_loc);
+            (float)ceil(lifNeurons[ln_idx + LN_T_REFRACT_IDX] / dt);
         lifNeurons[ln_idx + LN_VM_IDX] = lifNeurons[ln_idx + LN_V_RESET_IDX];
     } else {
         lifNeurons[ln_idx + LN_HAS_FIRED_IDX] = 0;
@@ -73,14 +71,12 @@ __kernel void nextState_plir(__global const float *dt,
     } else {
         spikes[gid] = 0;
     }
-    
-    if (gid == 0) step[0] = step_loc + 1;
 }
 
-__kernel void nextState_plcr(__global const float *dt,
+__kernel void nextState_plcr(const float dt,
+                             const int step,
+                             const int input_len,
                              __global const float *Iinjects,
-                             __global const int *input_len,
-                             __global int *step,
                              __global float *lifNeurons,
                              __global float *Vms,
                              __global int *spikes)
@@ -89,11 +85,9 @@ __kernel void nextState_plcr(__global const float *dt,
     // Start index of neuron
     long ln_idx = gid * LN_LEN;
     // Index to store Vm and spike
-    long out_idx = gid * input_len[0];
+    long out_idx = gid * input_len;
     
-    float dt_loc = dt[0];
-    int step_loc = step[0];
-    lifNeurons[ln_idx + LN_I_INJECT_IDX] = Iinjects[step_loc];
+    lifNeurons[ln_idx + LN_I_INJECT_IDX] = Iinjects[step];
     
     if (lifNeurons[ln_idx + LN_N_STEPS_IN_REFR_IDX] > 0) {
         lifNeurons[ln_idx + LN_N_STEPS_IN_REFR_IDX] -= 1;
@@ -101,7 +95,7 @@ __kernel void nextState_plcr(__global const float *dt,
     } else if (lifNeurons[ln_idx + LN_VM_IDX] >= lifNeurons[ln_idx + LN_V_THRESH_IDX]) {
         lifNeurons[ln_idx + LN_HAS_FIRED_IDX] = 1;
         lifNeurons[ln_idx + LN_N_STEPS_IN_REFR_IDX] =
-            (float)ceil(lifNeurons[ln_idx + LN_T_REFRACT_IDX] / dt_loc);
+            (float)ceil(lifNeurons[ln_idx + LN_T_REFRACT_IDX] / dt);
         lifNeurons[ln_idx + LN_VM_IDX] = lifNeurons[ln_idx + LN_V_RESET_IDX];
     } else {
         lifNeurons[ln_idx + LN_HAS_FIRED_IDX] = 0;
@@ -116,17 +110,17 @@ __kernel void nextState_plcr(__global const float *dt,
     
     lifNeurons[ln_idx + LN_SUMMATION_POINT_IDX] = 0;
     
-    Vms[out_idx + step_loc] = lifNeurons[ln_idx + LN_VM_IDX];
+    Vms[out_idx + step] = lifNeurons[ln_idx + LN_VM_IDX];
     if (lifNeurons[ln_idx + LN_HAS_FIRED_IDX]) {
-        spikes[out_idx + step_loc] = 1;
+        spikes[out_idx + step] = 1;
     } else {
-        spikes[out_idx + step_loc] = 0;
+        spikes[out_idx + step] = 0;
     }
 }
 
-__kernel void nextState_clcr(__global const float *dt,
+__kernel void nextState_clcr(const float dt,
+                             const int input_len,
                              __global const float *Iinjects,
-                             __global const int *input_len,
                              __global float *lifNeurons,
                              __global float *Vms,
                              __global int *spikes)
@@ -135,12 +129,9 @@ __kernel void nextState_clcr(__global const float *dt,
     // Start index of neuron
     long ln_idx = gid * LN_LEN;
     // Index to store Vm and spike
-    int input_len_loc = input_len[0];
-    long out_idx = gid * input_len_loc;
+    long out_idx = gid * input_len;
     
-    float dt_loc = dt[0];
-    
-    for (int step = 0; step < input_len_loc; step++) {
+    for (int step = 0; step < input_len; step++) {
         lifNeurons[ln_idx + LN_I_INJECT_IDX] = Iinjects[step];
         
         if (lifNeurons[ln_idx + LN_N_STEPS_IN_REFR_IDX] > 0) {
@@ -149,7 +140,7 @@ __kernel void nextState_clcr(__global const float *dt,
         } else if (lifNeurons[ln_idx + LN_VM_IDX] >= lifNeurons[ln_idx + LN_V_THRESH_IDX]) {
             lifNeurons[ln_idx + LN_HAS_FIRED_IDX] = 1;
             lifNeurons[ln_idx + LN_N_STEPS_IN_REFR_IDX] =
-                (float)ceil(lifNeurons[ln_idx + LN_T_REFRACT_IDX] / dt_loc);
+                (float)ceil(lifNeurons[ln_idx + LN_T_REFRACT_IDX] / dt);
             lifNeurons[ln_idx + LN_VM_IDX] = lifNeurons[ln_idx + LN_V_RESET_IDX];
         } else {
             lifNeurons[ln_idx + LN_HAS_FIRED_IDX] = 0;
@@ -174,10 +165,10 @@ __kernel void nextState_clcr(__global const float *dt,
     }
 }
 
-__kernel void nextState_plcr_pa(__global const float *dt,
+__kernel void nextState_plcr_pa(const float dt,
+                                const int step,
+                                const int input_len,
                                 __global const float *Iinjects,
-                                __global const int *input_len,
-                                __global int *steps,
                                 __global const float *lif_Rm,
                                 __global const float *lif_Vresting,
                                 __global const float *lif_Vthresh,
@@ -196,10 +187,7 @@ __kernel void nextState_plcr_pa(__global const float *dt,
 {
     long gid = get_global_id(0);
     // Index to store Vm and spike
-    long out_idx = gid * input_len[0];
-    
-    float dt_lm = dt[0];
-    int step = steps[gid];
+    long out_idx = gid * input_len;
     
     float Iinject = Iinjects[step];
     lif_Iinject[gid] = Iinject;
@@ -211,7 +199,7 @@ __kernel void nextState_plcr_pa(__global const float *dt,
         hasFired = 0;
     } else if (Vm >= lif_Vthresh[gid]) {
         hasFired = 1;
-        lif_nStepsInRefr[gid] = ceil(lif_Trefract[gid] / dt_lm);
+        lif_nStepsInRefr[gid] = ceil(lif_Trefract[gid] / dt);
         Vm = lif_Vreset[gid];
     } else {
         hasFired = 0;
@@ -229,12 +217,11 @@ __kernel void nextState_plcr_pa(__global const float *dt,
     } else {
         spikes[out_idx + step] = 0;
     }
-    steps[gid] = step + 1;
 }
 
-__kernel void nextState_clcr_pa(__global const float *dt,
+__kernel void nextState_clcr_pa(const float dt,
+                                const int input_len,
                                 __global const float *Iinjects,
-                                __global const int *input_len,
                                 __global const float *lif_Rm,
                                 __global const float *lif_Vresting,
                                 __global const float *lif_Vthresh,
@@ -253,22 +240,21 @@ __kernel void nextState_clcr_pa(__global const float *dt,
 {
     long gid = get_global_id(0);
     // Index to store Vm and spike
-    int input_len_lm = input_len[0];
-    long out_idx = gid * input_len_lm;
+    long out_idx = gid * input_len;
     
     int nStepsInRefr = lif_nStepsInRefr[gid];
     int hasFired;
     float Vm = lif_Vm[gid];
     float summationPoint = lif_summationPoint[gid];
     
-    for (int step = 0; step < input_len_lm; step++) {
+    for (int step = 0; step < input_len; step++) {
         if (nStepsInRefr > 0) {
             nStepsInRefr -= 1;
             hasFired = 0;
         } else if (Vm >= lif_Vthresh[gid]) {
             hasFired = 1;
             spikes[out_idx + step] = 1;
-            nStepsInRefr = ceil(lif_Trefract[gid] / dt[0]);
+            nStepsInRefr = ceil(lif_Trefract[gid] / dt);
             Vm = lif_Vreset[gid];
         } else {
             hasFired = 0;
@@ -285,9 +271,9 @@ __kernel void nextState_clcr_pa(__global const float *dt,
 #define BLOCK_START(pid, np, n) ((pid * n) / np)
 #define BLOCK_END(pid, np, n) ((((pid + 1) * n) / np) - 1)
 
-__kernel void nextState_clcrwg_pa(__global const float *dt,
+__kernel void nextState_clcrwg_pa(const float dt,
+                                  const int input_len,
                                   __global const float *Iinjects,
-                                  __global const int *input_len,
                                   __global const float *lif_Rm,
                                   __global const float *lif_Vresting,
                                   __global const float *lif_Vthresh,
@@ -313,7 +299,7 @@ __kernel void nextState_clcrwg_pa(__global const float *dt,
     long start_idx = BLOCK_START(lid, lsz, gsz);
     long end_idx = BLOCK_END(lid, lsz, gsz);
     
-    int input_len_lm = input_len[0];
+    int input_len_lm = input_len;
     for (int step = 0; step < input_len_lm; step++) {
         for (long idx = start_idx; idx <= end_idx; idx++) {
             // Index to store Vm and spike
@@ -330,7 +316,7 @@ __kernel void nextState_clcrwg_pa(__global const float *dt,
             } else if (Vm >= lif_Vthresh[idx]) {
                 hasFired = 1;
                 spikes[out_idx + step] = 1;
-                nStepsInRefr = ceil(lif_Trefract[idx] / dt[0]);
+                nStepsInRefr = ceil(lif_Trefract[idx] / dt);
                 Vm = lif_Vreset[idx];
             } else {
                 hasFired = 0;
