@@ -1,0 +1,2 @@
+Intel(R) Core(TM) i7-4770K CPU @ 3.50GHz
+GeForce GTX 780
