@@ -69,3 +69,67 @@ __kernel void advance_spikeHit_pn_pa(const float t,
     }
     ttl_PSRs_coll[out_idx + step] = ttl_PSR;
 }
+
+__kernel void advance_spikeHit_ps_pa(const float t,
+                                     const int step,
+                                     __global const int *hasFireds,
+                                     __global float *dss_PSR,
+                                     __global const float *dss_W,
+                                     __global const float *dss_decay,
+                                     __global const float *dss_U,
+                                     __global const float *dss_D,
+                                     __global const float *dss_F,
+                                     __global float *dss_u,
+                                     __global float *dss_r,
+                                     __global float *dss_lastSpike)
+{
+    long gid = get_global_id(0);
+    
+    // advance
+    float PSR = dss_PSR[gid];
+    float decay = dss_decay[gid];
+    PSR *= decay;
+    // preSpikeHit
+    if (hasFireds[step]) {
+        float r = dss_r[gid];
+        float u = dss_u[gid];
+        if (dss_lastSpike[gid] > 0) {
+            float isi = t - dss_lastSpike[gid];
+            r = 1 + \
+                ( ((r * (1 - u)) - 1) * \
+                  exp(-isi / dss_D[gid]) );
+            float U = dss_U[gid];
+            u = U + \
+                ( u  * (1 - U) * exp(-isi / dss_F[gid]) );
+            dss_r[gid] = r;
+            dss_u[gid] = u;
+        }
+        PSR += ((dss_W[gid] / decay) * u * r);
+        dss_lastSpike[gid] = t;
+    }
+    dss_PSR[gid] = PSR;
+}
+
+__kernel void sum_up_psr(const int step,
+                         const int nSteps,
+                         __global const int *ttl_incoming_synapses,
+                         __global const long *incoming_synapse_start_idxs,
+                         __global float *dss_PSR,
+                         __global float *ttl_PSRs_coll)
+{
+    long gid = get_global_id(0);
+    // Index to store total PSR
+    long out_idx = gid * nSteps;
+    
+    float ttl_PSR = 0;
+    int ttl_incoming_synapse = ttl_incoming_synapses[gid];
+    long start_idx = incoming_synapse_start_idxs[gid];
+    for (int i = 0; i < ttl_incoming_synapse; i++) {
+        // Synapse ID
+        long sid = start_idx + (long)i;
+        // Sum up PSR
+        float PSR = dss_PSR[sid];
+        ttl_PSR += PSR;
+    }
+    ttl_PSRs_coll[out_idx + step] = ttl_PSR;
+}
