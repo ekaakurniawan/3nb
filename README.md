@@ -1,9 +1,10 @@
-<h1>Neural Network Notebook (3nb)</h1>
+<h1>3nb</h1>
+_Neural Network Notebook_
 
-Collection of IPython Notebooks in biological Neural Network. To run the notebooks on your machine, please check the [installation procedure](http://nbviewer.ipython.org/github/ekaakurniawan/3nb/blob/master/Installation.ipynb?create=1).
+Collection of Jupyter Notebooks in biological Neural Networks.
 
 * Equations
-  * [Dose-Response Relations](http://nbviewer.ipython.org/github/ekaakurniawan/3nb/blob/master/Dose-Response%20Relations.ipynb?create=1)
+  * [Dose-Response Relations](https://nbviewer.jupyter.org/github/ekaakurniawan/3nb/blob/master/Equations/Dose-Response%20Relations/Dose-Response%20Relations.ipynb)
 
 * Neuron Models
   * [Leaky Integrate-and-Fire (LIF) Neuron Model](http://nbviewer.ipython.org/github/ekaakurniawan/3nb/blob/master/LifNeuron.ipynb?create=1)
