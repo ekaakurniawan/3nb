@@ -1,6 +1,6 @@
 <h1>3nb</h1>
 
-_Neural Network Notebook_
+_Neural Network Notebooks_
 
 Collection of Jupyter Notebooks in biological Neural Networks.
 
