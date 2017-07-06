@@ -1,3 +1,5 @@
+Collection of biological neural network notebooks.
+
 * Equations
   * [Dose-Response Relations](http://nbviewer.jupyter.org/github/ekaakurniawan/3nb/blob/master/Equations/Dose-Response%20Relations/Dose-Response%20Relations.ipynb)
 
