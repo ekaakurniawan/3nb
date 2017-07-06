@@ -1,9 +1,3 @@
-# 3nb
-
-_Neural Network Notebooks_
-
-Collection of Jupyter Notebooks in biological Neural Networks.
-
 * Equations
   * [Dose-Response Relations](http://nbviewer.jupyter.org/github/ekaakurniawan/3nb/blob/master/Equations/Dose-Response%20Relations/Dose-Response%20Relations.ipynb)
 
